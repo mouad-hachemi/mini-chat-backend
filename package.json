@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "scripts": {
+    "dev": "nodemon index.js"
+  },
+  "type": "module"
+}
