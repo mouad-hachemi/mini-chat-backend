@@ -41,6 +41,12 @@ app.post("/api/v1/register", async (req, res) => {
     });
   }
 
+  const user = getUserByUsername(username);
+  if (user)
+    return res
+      .status(400)
+      .json({ success: false, error: "Username already taken" });
+
   const passwordHash = await bcrypt.hash(password, 10);
 
   try {
