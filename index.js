@@ -1,11 +1,32 @@
 import express from "express";
-import { createUser } from "./db.js";
+import { createUser, getUserByUsername } from "./db.js";
 import bcrypt from "bcrypt";
+import jsonwebtoken from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 
 const PORT = 8080;
+const JWT_SECRET = process.env.JWT_SECRET || "you-cant-guess-this";
+
+function authenticateToken(req, res, next) {
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(403).json({ success: false, error: "Please login." });
+  }
+
+  jsonwebtoken.verify(token, JWT_SECRET, (err, user) => {
+    if (err)
+      return res
+        .status(403)
+        .json({ success: false, error: "Invalid or expired token." });
+    req.user = user;
+    next();
+  });
+}
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/api/v1/", (req, res) => {
   return res.status(200).json({ success: true, message: "Hello, Web" });
@@ -42,6 +63,56 @@ app.post("/api/v1/register", async (req, res) => {
       .status(500)
       .json({ success: false, error: "Internale error occured." });
   }
+});
+
+app.post("/api/v1/login", async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({
+      success: false,
+      error: "Please provide a valid username and password.",
+    });
+  }
+
+  const user = getUserByUsername(username);
+
+  if (!user)
+    return res.status(404).json({
+      success: false,
+      error: "No user found.",
+    });
+
+  const isValidPassword = await bcrypt.compare(password, user.password_hash);
+
+  if (!isValidPassword)
+    return res.status(401).json({
+      success: false,
+      error: "Incorrect password, please enter the valid one.",
+    });
+
+  const token = jsonwebtoken.sign(
+    {
+      userId: user.id,
+      username: user.username,
+    },
+    JWT_SECRET,
+    { expiresIn: "24h" },
+  );
+
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+
+  return res
+    .status(200)
+    .json({ success: true, message: "Logged in successfuly" });
+});
+
+app.get("/api/v1/protected", authenticateToken, (req, res) => {
+  return res.status(200).json({ success: true });
 });
 
 app.listen(PORT, (error) => {

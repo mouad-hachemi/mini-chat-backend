@@ -25,7 +25,16 @@ const insertUserStmt = db.prepare(`
   VALUES (?, ?)
   `);
 
+const selectUserStmt = db.prepare(`
+  SELECT id, username, password_hash FROM users WHERE username = ?;
+  `);
+
 export const createUser = (username, passwordHash) => {
   const results = insertUserStmt.run(username, passwordHash);
   return results.changes;
+};
+
+export const getUserByUsername = (username) => {
+  const result = selectUserStmt.get(username);
+  return result;
 };
