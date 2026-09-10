@@ -1,8 +1,9 @@
 import express from "express";
-import { createUser, getUserByUsername } from "./db.js";
+import { createRoom, createUser, getUserByUsername } from "./db.js";
 import bcrypt from "bcrypt";
 import jsonwebtoken from "jsonwebtoken";
 import cookieParser from "cookie-parser";
+import { nanoid } from "nanoid";
 
 const PORT = 8080;
 const JWT_SECRET = process.env.JWT_SECRET || "you-cant-guess-this";
@@ -15,10 +16,16 @@ function authenticateToken(req, res, next) {
   }
 
   jsonwebtoken.verify(token, JWT_SECRET, (err, user) => {
-    if (err)
+    if (err) {
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+      });
       return res
         .status(403)
         .json({ success: false, error: "Invalid or expired token." });
+    }
     req.user = user;
     next();
   });
@@ -118,7 +125,28 @@ app.post("/api/v1/login", async (req, res) => {
 });
 
 app.get("/api/v1/protected", authenticateToken, (req, res) => {
-  return res.status(200).json({ success: true });
+  return res
+    .status(200)
+    .json({ success: true, message: "You're authenticated." });
+});
+
+app.get("/api/v1/create-room", authenticateToken, (req, res) => {
+  const url = nanoid();
+  const ownerId = req.user.userId;
+  try {
+    const rows = createRoom(url, ownerId);
+    if (!rows)
+      return res
+        .status(400)
+        .json({ success: false, error: "Couldn't create a room." });
+
+    return res.status(201).json({ success: true, url });
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Internal error occured." });
+  }
 });
 
 app.listen(PORT, (error) => {
