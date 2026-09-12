@@ -22,6 +22,24 @@ const initDb = () => {
       owner_id INTEGER NOT NULL UNIQUE,
       FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS rooms_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      joined_at INTEGER DEFAULT (unixepoch()),
+      FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rooms_url
+    ON rooms(room_url);
+
+    CREATE INDEX IF NOT EXISTS idx_rooms_members_room_id
+    ON rooms_members(room_id);
+
+    CREATE INDEX IF NOT EXISTS idx_rooms_members_room_user_id
+    ON rooms_members(room_id, user_id);
     `);
 };
 
@@ -41,6 +59,23 @@ const insertRoomStmt = db.prepare(`
   VALUES (?, ?);
   `);
 
+const selectRoomByURLStmt = db.prepare(`
+  SELECT id, room_url, owner_id FROM rooms WHERE room_url = ?;
+  `);
+
+const selectUsersByRoom = db.prepare(`
+  SELECT user_id FROM rooms_members WHERE room_id = ?;
+  `);
+
+const selectUserByRoomStmt = db.prepare(`
+  SELECT 1 FROM rooms_members WHERE room_id = ? AND user_id = ?;
+  `);
+
+const insertRoomMemberStmt = db.prepare(`
+  INSERT INTO rooms_members (room_id, user_id)
+  VALUES (?, ?);
+  `);
+
 export const createUser = (username, passwordHash) => {
   const results = insertUserStmt.run(username, passwordHash);
   return results.changes;
@@ -53,5 +88,25 @@ export const getUserByUsername = (username) => {
 
 export const createRoom = (roomUrl, ownerId) => {
   const result = insertRoomStmt.run(roomUrl, ownerId);
+  return result.changes;
+};
+
+export const getRoomByURL = (roomURL) => {
+  const row = selectRoomByURLStmt.get(roomURL);
+  return row;
+};
+
+export const getUsersByRoom = (roomId) => {
+  const rows = selectUsersByRoom.all(roomId);
+  return rows;
+};
+
+export const getUserByRoom = (roomId, userId) => {
+  const row = selectUserByRoomStmt.get(roomId, userId);
+  return row;
+};
+
+export const addRoomMember = (roomId, userId) => {
+  const result = insertRoomMemberStmt.run(roomId, userId);
   return result.changes;
 };
