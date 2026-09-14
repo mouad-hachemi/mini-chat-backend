@@ -1,9 +1,11 @@
 import express from "express";
+import cors from "cors";
 import {
   addRoomMember,
   createRoom,
   createUser,
   getRoomByURL,
+  getRoomsByUser,
   getUserByRoom,
   getUserByUsername,
 } from "./db.js";
@@ -49,6 +51,23 @@ function getTokenFromCookie(cookieHeader) {
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        /^https?:\/\/(?:localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::\d+)?$/.test(
+          origin,
+        )
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Blocked by Cors Policy."));
+      }
+    },
+    credentials: true,
+  }),
+);
 
 const server = createServer(app);
 
@@ -209,10 +228,21 @@ app.post("/api/v1/login", async (req, res) => {
     .json({ success: true, message: "Logged in successfuly" });
 });
 
+app.post("/api/v1/logout", (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+  });
+  return res
+    .status(200)
+    .json({ success: true, message: "Successfuly logged out." });
+});
+
 app.get("/api/v1/protected", authenticateToken, (req, res) => {
   return res
     .status(200)
-    .json({ success: true, message: "You're authenticated." });
+    .json({ success: true, message: "You're authenticated.", user: req.user });
 });
 
 app.post("/api/v1/create-room", authenticateToken, (req, res) => {
@@ -226,6 +256,21 @@ app.post("/api/v1/create-room", authenticateToken, (req, res) => {
         .json({ success: false, error: "Couldn't create a room." });
 
     return res.status(201).json({ success: true, url });
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Internal error occured." });
+  }
+});
+
+app.get("/api/v1/rooms", authenticateToken, (req, res) => {
+  const { user } = req;
+  try {
+    const { roomsJoined, roomsOwned } = getRoomsByUser(user.userId);
+    return res
+      .status(200)
+      .json({ success: true, rooms: roomsJoined.concat(roomsOwned) });
   } catch (error) {
     console.log(error);
     return res
@@ -258,7 +303,7 @@ app.get("/api/v1/rooms/:room_url", authenticateToken, (req, res) => {
   }
 });
 
-server.listen(PORT, (error) => {
+server.listen(PORT, "0.0.0.0", (error) => {
   console.log(
     `REST API server currently running at: http://localhost:8080/api/v1`,
   );

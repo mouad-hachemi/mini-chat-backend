@@ -71,6 +71,17 @@ const selectUserByRoomStmt = db.prepare(`
   SELECT 1 FROM rooms_members WHERE room_id = ? AND user_id = ?;
   `);
 
+const selectRoomsByUserStmt = db.prepare(`
+  SELECT rooms.room_url FROM rooms
+  INNER JOIN rooms_members ON rooms.id = rooms_members.room_id
+  WHERE rooms_members.user_id = ?;
+  `);
+
+const selectRoomsByOwnerStmt = db.prepare(`
+  SELECT room_url FROM rooms
+  WHERE owner_id = ?;
+  `);
+
 const insertRoomMemberStmt = db.prepare(`
   INSERT INTO rooms_members (room_id, user_id)
   VALUES (?, ?);
@@ -109,4 +120,10 @@ export const getUserByRoom = (roomId, userId) => {
 export const addRoomMember = (roomId, userId) => {
   const result = insertRoomMemberStmt.run(roomId, userId);
   return result.changes;
+};
+
+export const getRoomsByUser = (userId) => {
+  const roomsJoined = selectRoomsByUserStmt.all(userId);
+  const roomsOwned = selectRoomsByOwnerStmt.all(userId);
+  return { roomsJoined, roomsOwned };
 };
