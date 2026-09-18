@@ -98,7 +98,11 @@ wss.on("connection", (ws, req) => {
         const participants = rooms.get(room_url);
         if (participants) participants.add(ws);
         else rooms.set(room_url, new Set([ws]));
-        ws.send(`User ${ws.user.username} joined successfuly.`);
+        ws.send(
+          JSON.stringify({
+            content: `User ${ws.user.username} joined successfuly.`,
+          }),
+        );
         break;
       }
       case "SEND_MSG": {
@@ -121,6 +125,9 @@ wss.on("connection", (ws, req) => {
           participant.send(JSON.stringify(payload));
         });
         break;
+      }
+      case "QUIT_ROOM": {
+        // to be implemented.
       }
     }
   });
@@ -225,7 +232,11 @@ app.post("/api/v1/login", async (req, res) => {
 
   return res
     .status(200)
-    .json({ success: true, message: "Logged in successfuly" });
+    .json({
+      success: true,
+      message: "Logged in successfuly",
+      user: { username },
+    });
 });
 
 app.post("/api/v1/logout", (req, res) => {

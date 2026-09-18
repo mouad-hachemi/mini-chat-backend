@@ -40,6 +40,9 @@ const initDb = () => {
 
     CREATE INDEX IF NOT EXISTS idx_rooms_members_room_user_id
     ON rooms_members(room_id, user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_rooms_members_user_id
+    ON rooms_members(user_id);
     `);
 };
 
