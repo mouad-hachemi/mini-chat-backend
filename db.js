@@ -19,7 +19,7 @@ const initDb = () => {
     CREATE TABLE IF NOT EXISTS rooms (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       room_url VARCHAR(256) NOT NULL UNIQUE,
-      owner_id INTEGER NOT NULL UNIQUE,
+      owner_id INTEGER NOT NULL,
       FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
