@@ -32,6 +32,16 @@ const initDb = () => {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content VARCHAR(1000) NOT NULL,
+      room_url VARCHAR NOT NULL,
+      from_id INTEGER,
+      sent_at INTEGER DEFAULT (unixepoch()),
+      FOREIGN KEY (room_url) REFERENCES rooms(room_url) ON DELETE CASCADE,
+      FOREIGN KEY (from_id) REFERENCES users(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_rooms_url
     ON rooms(room_url);
 
@@ -90,6 +100,20 @@ const insertRoomMemberStmt = db.prepare(`
   VALUES (?, ?);
   `);
 
+const insertMessageStmt = db.prepare(`
+  INSERT INTO messages (content, room_url, from_id)
+  VALUES (?, ?, ?);
+  `);
+
+const selectMessageByRoomStmt = db.prepare(`
+  SELECT content, room_url, username FROM messages
+  INNER JOIN users
+  ON messages.from_id = users.id
+  WHERE room_url = ?
+  ORDER BY sent_at DESC
+  LIMIT (? + 1) OFFSET ?
+  `);
+
 export const createUser = (username, passwordHash) => {
   const results = insertUserStmt.run(username, passwordHash);
   return results.changes;
@@ -129,4 +153,14 @@ export const getRoomsByUser = (userId) => {
   const roomsJoined = selectRoomsByUserStmt.all(userId);
   const roomsOwned = selectRoomsByOwnerStmt.all(userId);
   return { roomsJoined, roomsOwned };
+};
+
+export const insertMessage = (content, roomURL, fromId) => {
+  const row = insertMessageStmt.run(content, roomURL, fromId);
+  return row.changes;
+};
+
+export const selectMessageByRoom = (roomURL, limit = 10, offset = 0) => {
+  const rows = selectMessageByRoomStmt.all(roomURL, limit, offset);
+  return rows;
 };

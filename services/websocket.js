@@ -1,5 +1,6 @@
 import { WebSocketServer } from "ws";
 import jsonwebtoken from "jsonwebtoken";
+import { insertMessage } from "../db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "you-cant-guess-this";
 const rooms = new Map();
@@ -63,6 +64,7 @@ export const initServer = (server) => {
           participants.forEach((participant) => {
             participant.send(JSON.stringify(payload));
           });
+          insertMessage(content, room_url, ws.user.userId);
           break;
         }
         case "QUIT_ROOM": {
